@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import '../index.css'; // Make sure styling is imported
+import '../index.css';
 
 function SessionList({ sessions, createSession, deleteSession, setSession, currentSessionId }) {
   const [sessionName, setSessionName] = useState('');
@@ -11,8 +11,14 @@ function SessionList({ sessions, createSession, deleteSession, setSession, curre
     }
   };
 
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleCreate();
+    }
+  };
+
   return (
-    <div className="session-list">
+    <div className="session-list-content">
       <h2>Chatbot</h2>
 
       <div className="session-input">
@@ -21,8 +27,9 @@ function SessionList({ sessions, createSession, deleteSession, setSession, curre
           placeholder="New session name"
           value={sessionName}
           onChange={(e) => setSessionName(e.target.value)}
+          onKeyDown={handleKeyPress}
         />
-        <button onClick={handleCreate}>+ Create</button>
+        <button onClick={handleCreate}>Create</button>
       </div>
 
       <div className="session-items">
