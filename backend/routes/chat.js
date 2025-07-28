@@ -11,8 +11,7 @@ router.post('/session', async (req, res) => {
 
     res.cookie('sessionId', session._id.toString(), {
       httpOnly: true,
-      secure: true,
-      sameSite: 'None',
+      sameSite: 'Lax',
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
