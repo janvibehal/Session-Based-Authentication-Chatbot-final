@@ -16,7 +16,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use('/api/chat', chatRoutes);
 
-mongoose.connect('mongodb://127.0.0.1:27017/chatbot', {
+mongoose.connect('mongodb+srv://janvibehal2:UeZdGO2k6YePMxs7@chatbot.0z1myak.mongodb.net/?retryWrites=true&w=majority&appName=chatbot', {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
