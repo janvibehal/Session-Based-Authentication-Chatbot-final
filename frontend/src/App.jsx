@@ -16,7 +16,7 @@ const App = () => {
 
   const fetchSessions = async () => {
     try {
-      const res = await axios.get('http://localhost:6001/api/chat/sessions');
+      const res = await axios.get('https://session-based-authentication-chatbot.onrender.com/');
       setSessions(res.data);
     } catch (err) {
       console.error('Error fetching sessions:', err);

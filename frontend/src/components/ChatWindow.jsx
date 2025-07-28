@@ -13,7 +13,7 @@ const ChatWindow = ({ session }) => {
 
     const fetchMessages = async () => {
       try {
-        const res = await axios.get(`http://localhost:6001/api/chat/messages/${session._id}`);
+        const res = await axios.get(`https://session-based-authentication-chatbot.onrender.com/`);
         setMessages(res.data || []);
       } catch (err) {
         console.error('Failed to fetch messages:', err);
@@ -47,7 +47,7 @@ const ChatWindow = ({ session }) => {
 
       setInput('');
       setTimeout(async () => {
-        const res = await axios.get(`http://localhost:6001/api/chat/messages/${session._id}`);
+        const res = await axios.get(`https://session-based-authentication-chatbot.onrender.com/`);
         setMessages(res.data || []);
         setLoading(false);
       }, 1500);
