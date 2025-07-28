@@ -5,7 +5,9 @@ import ChatWindow from './components/ChatWindow';
 import SessionList from './components/SessionList';
 import './index.css';
 
+// ✅ Automatically sends cookies with requests
 axios.defaults.withCredentials = true;
+axios.defaults.baseURL = process.env.REACT_APP_API_BASE || 'http://localhost:6001/api/chat';
 
 const App = () => {
   const [sessions, setSessions] = useState([]);
@@ -18,7 +20,7 @@ const App = () => {
 
   const fetchSessions = async () => {
     try {
-      const res = await axios.get(`${process.env.REACT_APP_API_BASE}/api/chat/sessions`);
+      const res = await axios.get('/sessions');
       setSessions(res.data);
     } catch (err) {
       console.error('Error fetching sessions:', err);
@@ -29,7 +31,7 @@ const App = () => {
     if (!name) return;
 
     try {
-      const res = await axios.post(`${process.env.REACT_APP_API_BASE}/api/chat/session`, { name });
+      const res = await axios.post('/session', { name });
       setSessions([...sessions, res.data]);
       setCurrentSession(res.data);
       setIsMobileMenuOpen(false); // Close menu after creating session
@@ -40,7 +42,7 @@ const App = () => {
 
   const deleteSession = async (sessionId) => {
     try {
-      await axios.delete(`${process.env.REACT_APP_API_BASE}/api/chat/session/${sessionId}`);
+      await axios.delete(`/session/${sessionId}`);
       setSessions(sessions.filter((s) => s._id !== sessionId));
       if (currentSession && currentSession._id === sessionId) {
         setCurrentSession(null);
@@ -69,7 +71,10 @@ const App = () => {
       </button>
 
       {/* Mobile Overlay */}
-      <div className={`mobile-overlay ${isMobileMenuOpen ? 'active' : ''}`} onClick={() => setIsMobileMenuOpen(false)}></div>
+      <div 
+        className={`mobile-overlay ${isMobileMenuOpen ? 'active' : ''}`} 
+        onClick={() => setIsMobileMenuOpen(false)}
+      ></div>
 
       {/* Session List - Desktop always visible, Mobile sliding panel */}
       <div className={`session-list ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
