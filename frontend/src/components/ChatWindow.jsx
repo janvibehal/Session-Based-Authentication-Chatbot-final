@@ -48,6 +48,7 @@ const ChatWindow = ({ session }) => {
 
   return (
     <div className="chat-window">
+      
       <div className="chat-messages">
         {messages.map((msg, idx) => (
           <div key={idx} className={`message ${msg.role}`}>
