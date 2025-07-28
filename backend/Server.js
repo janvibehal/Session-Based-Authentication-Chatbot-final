@@ -9,7 +9,7 @@ const app = express();
 const PORT = 6001;
 
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: 'https://session-based-authentication-chatbo.vercel.app/',
   credentials: true
 }));
 app.use(express.json());

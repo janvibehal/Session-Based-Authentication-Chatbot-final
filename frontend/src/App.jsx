@@ -5,6 +5,8 @@ import ChatWindow from './components/ChatWindow';
 import SessionList from './components/SessionList';
 import './index.css';
 
+axios.defaults.withCredentials = true;
+
 const App = () => {
   const [sessions, setSessions] = useState([]);
   const [currentSession, setCurrentSession] = useState(null);
@@ -16,7 +18,7 @@ const App = () => {
 
   const fetchSessions = async () => {
     try {
-      const res = await axios.get('https://session-based-authentication-chatbot.onrender.com/');
+      const res = await axios.get(`${process.env.REACT_APP_API_BASE}/api/chat/sessions`);
       setSessions(res.data);
     } catch (err) {
       console.error('Error fetching sessions:', err);
@@ -27,7 +29,7 @@ const App = () => {
     if (!name) return;
 
     try {
-      const res = await axios.post('http://localhost:6001/api/chat/session', { name }, { withCredentials: true });
+      const res = await axios.post(`${process.env.REACT_APP_API_BASE}/api/chat/session`, { name });
       setSessions([...sessions, res.data]);
       setCurrentSession(res.data);
       setIsMobileMenuOpen(false); // Close menu after creating session
@@ -38,7 +40,7 @@ const App = () => {
 
   const deleteSession = async (sessionId) => {
     try {
-      await axios.delete(`http://localhost:6001/api/chat/session/${sessionId}`);
+      await axios.delete(`${process.env.REACT_APP_API_BASE}/api/chat/session/${sessionId}`);
       setSessions(sessions.filter((s) => s._id !== sessionId));
       if (currentSession && currentSession._id === sessionId) {
         setCurrentSession(null);

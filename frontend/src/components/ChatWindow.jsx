@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
+axios.defaults.withCredentials = true;
+
+
 const ChatWindow = ({ session }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -13,7 +16,7 @@ const ChatWindow = ({ session }) => {
 
     const fetchMessages = async () => {
       try {
-        const res = await axios.get(`https://session-based-authentication-chatbot.onrender.com/`);
+        const res = await axios.get(`${process.env.REACT_APP_API_BASE}/api/chat/sessions`);
         setMessages(res.data || []);
       } catch (err) {
         console.error('Failed to fetch messages:', err);
@@ -40,14 +43,14 @@ const ChatWindow = ({ session }) => {
     const userMessage = { role: 'user', content: input };
 
     try {
-      await axios.post('http://localhost:6001/api/chat/message', {
+      await axios.post(`${process.env.REACT_APP_API_BASE}/api/chat/message`, {
         sessionId: session._id,
         ...userMessage
       });
 
       setInput('');
       setTimeout(async () => {
-        const res = await axios.get(`https://session-based-authentication-chatbot.onrender.com/`);
+        const res = await axios.get(`${process.env.REACT_APP_API_BASE}/api/chat/sessions`);
         setMessages(res.data || []);
         setLoading(false);
       }, 1500);
