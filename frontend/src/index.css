@@ -582,7 +582,7 @@ body::before {
 
   .input-area button {
     width: 40px;
-    height: 40px;
+    height: px;
   }
 
   .empty-chat {
@@ -767,7 +767,7 @@ body::before {
 
 /* Hamburger animation when open */
 .hamburger-btn.open {
-  transform: translateX(235px); /* Or adjust as needed */
+  transform: translateX(238px); /* Or adjust as needed */
   transition: transform 0.3s ease;
 }
 
@@ -867,6 +867,7 @@ body::before {
   flex: 1;
   overflow-y: auto;
   padding: 0 16px;
+  max-height: 70%;
 }
 
 .session-items::-webkit-scrollbar {
