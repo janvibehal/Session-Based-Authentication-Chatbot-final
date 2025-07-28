@@ -503,7 +503,7 @@ body::before {
 }
 
 /* Mobile Responsive */
-@media (max-width: 768px) {
+@media (max-width: 550px) {
   .app-container {
     flex-direction: column;
   }
