@@ -19,7 +19,7 @@ function SessionList({ sessions, createSession, deleteSession, setSession, curre
 
   return (
     <div className="session-list-content">
-      <h2>Chatbot</h2>
+      <h2>iChat</h2>
 
       <div className="session-input">
         <input
