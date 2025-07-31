@@ -8,42 +8,46 @@ A session-based chatbot built with the MERN stack.
 - **Database:** MongoDB with Mongoose
 
 ## 🚀 How to Run
-### 0. first change both package_frontend and backend files name to package.json and put them in their respective folders according to the file structure which is provided at the end of the readme file
-### 1. Backend
+### 0. first change both package_frontend and backend files name to package.json and put them in their respective folders according to the file structure which is provided at the end of the readme file, firstly open the mongo compass on ur system and click on connect, run the command mongod 
+### 1. Backend:- open other terminal and run the following commands
 ```bash
 cd backend
 npm install cookie-parser
 npm run dev
 
-## 2. frontend
+## 2. frontend:- open another terminal and run the following commands
 ```bash
 cd frontend
 npm install js-cookie
 npm start
 
 ## 3. folder structure
-chatbot-mern/
+Session-Based Chatbot/
 ├── backend/
 │   ├── models/
-│   │   ├── Message.js          # Mongoose schema for chat messages
-│   │   └── Session.js          # Mongoose schema for chat sessions
+│   │   ├── ChatMessage.js      # Mongoose schema for individual chat messages
+│   │   └── ChatSession.js      # Mongoose schema for chat sessions
 │   ├── routes/
-│   │   └── chat.js             # API routes for sessions and messages
-│   ├── server.js               # Express server setup
-│   └── .env                    # Environment variables (PORT, MONGO_URI)
+│   │   └── chat.js             # Express routes to handle chat/session API
+│   ├── node_modules/           # Backend dependencies
+│   ├── .env                    # Environment config (PORT, MONGO_URI, etc.)
+│   ├── package.json            # Backend dependency list and scripts
+│   ├── package-lock.json       # Backend lockfile for dependencies
+│   └── Server.js               # Entry point - sets up Express server
 │
 ├── frontend/
+│   ├── node_modules/           # Frontend dependencies
 │   ├── public/
-│   │   └── index.html          # Main HTML template
+│   │   └── index.html          # Base HTML template
 │   ├── src/
-│   │   ├── components/
-│   │   │   ├── ChatWindow.jsx  # Chat interface for messages
-│   │   │   └── SessionList.jsx # Sidebar to manage sessions
-│   │   ├── App.jsx             # Main React app combining components
-│   │   ├── index.js            # Entry point for React DOM rendering
-│   │   └── index.css           # Global styles (optional)
-│   └── package.json            # Frontend dependencies and scripts
+│   │   ├── App.jsx             # Root React component
+│   │   ├── index.css           # Global CSS styling
+│   │   ├── index.js            # React entry point rendering App.jsx
+│   │   └── components/
+│   │       ├── ChatWindow.jsx  # Component for chat UI and messages
+│   │       └── SessionList.jsx # Component listing previous chat sessions
+│   ├── package.json            # Frontend dependency list and scripts
+│   └── package-lock.json       # Frontend lockfile for dependencies
 │
-├── package.json                # Backend dependencies and scripts
-├── README.md                   # Project documentation
-└── README.pdf                  # (Optional) PDF version of README
+├── .gitignore                  # Specifies files to ignore in git commits
+└── README.md                   # Project documentation
