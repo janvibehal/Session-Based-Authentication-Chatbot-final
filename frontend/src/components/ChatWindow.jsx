@@ -6,7 +6,7 @@ const ChatWindow = ({ session }) => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const inputRef = useRef(null);
-  const bottomRef = useRef(null); // 👈 Add scroll ref
+  const bottomRef = useRef(null); // Add scroll ref
 
   useEffect(() => {
     if (!session?._id) return;
@@ -71,7 +71,7 @@ const ChatWindow = ({ session }) => {
             <strong>{msg.role === 'user' ? 'You' : 'Bot'}:</strong> {msg.content}
           </div>
         ))}
-        <div ref={bottomRef} /> {/* 👈 Scroll target */}
+        <div ref={bottomRef} /> {/* Scroll target */}
       </div>
 
       {session ? (

@@ -55,7 +55,7 @@ const App = () => {
 
   return (
     <div className="app-container">
-      {/* Hamburger Button - Only visible on mobile */}
+      {/*Only visible on mobile*/}
       <button 
         className={`hamburger-btn ${isMobileMenuOpen ? 'open' : ''}`}
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}

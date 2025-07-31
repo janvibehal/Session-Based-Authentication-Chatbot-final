@@ -3,7 +3,7 @@ const router = express.Router();
 const ChatSession = require('../models/ChatSession');
 const ChatMessage = require('../models/ChatMessage');
 
-// ✅ Create a session and store sessionId in cookie
+// Create a session and store sessionId in cookie
 router.post('/session', async (req, res) => {
   try {
     const session = new ChatSession({ name: req.body.name });
@@ -22,7 +22,7 @@ router.post('/session', async (req, res) => {
   }
 });
 
-// ✅ Get all sessions
+// Get all sessions
 router.get('/sessions', async (req, res) => {
   try {
     const sessions = await ChatSession.find();
@@ -33,7 +33,7 @@ router.get('/sessions', async (req, res) => {
   }
 });
 
-// ✅ Get messages by sessionId
+// Get messages by sessionId
 router.get('/messages/:sessionId', async (req, res) => {
   try {
     const sessionId = req.params.sessionId;
@@ -45,7 +45,7 @@ router.get('/messages/:sessionId', async (req, res) => {
   }
 });
 
-// ✅ Send message + basic bot reply
+// Send message + basic bot reply
 router.post('/message', async (req, res) => {
   try {
     const { sessionId, role, content } = req.body;
@@ -80,7 +80,7 @@ router.post('/message', async (req, res) => {
   }
 });
 
-// ✅ Delete session
+// Delete session
 router.delete('/session/:sessionId', async (req, res) => {
   try {
     const { sessionId } = req.params;
