@@ -15,7 +15,7 @@ cd backend
 npm install cookie-parser
 npm run dev
 
-## 2. frontend:- open another terminal and run the following commands
+### 2. frontend:- open another terminal and run the following commands
 ```bash
 cd frontend
 npm install js-cookie
