@@ -5,6 +5,10 @@ import ChatWindow from './components/ChatWindow';
 import SessionList from './components/SessionList';
 import './index.css';
 
+// 🔴 ONE source of truth for backend URL
+const API_BASE_URL =
+  process.env.REACT_APP_API_URL || 'http://localhost:6001';
+
 const App = () => {
   const [sessions, setSessions] = useState([]);
   const [currentSession, setCurrentSession] = useState(null);
@@ -16,7 +20,10 @@ const App = () => {
 
   const fetchSessions = async () => {
     try {
-      const res = await axios.get('http://localhost:6001/api/chat/sessions');
+      const res = await axios.get(
+        `${API_BASE_URL}/api/chat/sessions`,
+        { withCredentials: true }
+      );
       setSessions(res.data);
     } catch (err) {
       console.error('Error fetching sessions:', err);
@@ -27,10 +34,14 @@ const App = () => {
     if (!name) return;
 
     try {
-      const res = await axios.post('http://localhost:6001/api/chat/session', { name }, { withCredentials: true });
+      const res = await axios.post(
+        `${API_BASE_URL}/api/chat/session`,
+        { name },
+        { withCredentials: true }
+      );
       setSessions([...sessions, res.data]);
       setCurrentSession(res.data);
-      setIsMobileMenuOpen(false); // Close menu after creating session
+      setIsMobileMenuOpen(false);
     } catch (err) {
       console.error('Error creating session:', err);
     }
@@ -38,9 +49,12 @@ const App = () => {
 
   const deleteSession = async (sessionId) => {
     try {
-      await axios.delete(`http://localhost:6001/api/chat/session/${sessionId}`);
+      await axios.delete(
+        `${API_BASE_URL}/api/chat/session/${sessionId}`,
+        { withCredentials: true }
+      );
       setSessions(sessions.filter((s) => s._id !== sessionId));
-      if (currentSession && currentSession._id === sessionId) {
+      if (currentSession?._id === sessionId) {
         setCurrentSession(null);
       }
     } catch (err) {
@@ -50,13 +64,13 @@ const App = () => {
 
   const setSession = (session) => {
     setCurrentSession(session);
-    setIsMobileMenuOpen(false); // Close menu when session is selected
+    setIsMobileMenuOpen(false);
   };
 
   return (
     <div className="app-container">
-      {/*Only visible on mobile*/}
-      <button 
+      {/* Mobile hamburger */}
+      <button
         className={`hamburger-btn ${isMobileMenuOpen ? 'open' : ''}`}
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         aria-label="Toggle menu"
@@ -66,12 +80,15 @@ const App = () => {
         <span></span>
       </button>
 
-      {/* Mobile Overlay */}
-      <div className={`mobile-overlay ${isMobileMenuOpen ? 'active' : ''}`} onClick={() => setIsMobileMenuOpen(false)}></div>
+      {/* Mobile overlay */}
+      <div
+        className={`mobile-overlay ${isMobileMenuOpen ? 'active' : ''}`}
+        onClick={() => setIsMobileMenuOpen(false)}
+      ></div>
 
-      {/* Session List - Desktop always visible, Mobile sliding panel */}
+      {/* Session list */}
       <div className={`session-list ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
-        <SessionList 
+        <SessionList
           sessions={sessions}
           createSession={createSession}
           deleteSession={deleteSession}
@@ -80,6 +97,7 @@ const App = () => {
         />
       </div>
 
+      {/* Chat window */}
       <ChatWindow session={currentSession} />
     </div>
   );

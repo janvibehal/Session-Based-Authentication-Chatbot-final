@@ -7,14 +7,29 @@ require('dotenv').config();
 
 const app = express();
 
-// 🔴 NEVER hardcode port in production
+// ✅ Port from env (Render compatible)
 const PORT = process.env.PORT || 6001;
 
-// 🔴 NEVER hardcode MongoDB localhost in production
+// ✅ Mongo URI from env
 const MONGO_URI = process.env.MONGO_URI;
 
+// ✅ Allow BOTH local + deployed frontend
+const allowedOrigins = [
+  process.env.CLIENT_URL,          // production frontend
+  'http://localhost:3000'           // local frontend
+];
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || '*',
+  origin: function (origin, callback) {
+    // allow requests with no origin (Postman, curl)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error('CORS not allowed from this origin'), false);
+  },
   credentials: true
 }));
 
@@ -22,7 +37,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use('/api/chat', chatRoutes);
 
-// 🔴 Fail fast if env is missing
+// ❌ Fail fast if DB env missing
 if (!MONGO_URI) {
   console.error('❌ MONGO_URI not defined');
   process.exit(1);

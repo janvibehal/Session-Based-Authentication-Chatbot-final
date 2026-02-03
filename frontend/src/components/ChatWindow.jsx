@@ -1,19 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
+// 🔴 Single source of truth for backend URL
+const API_BASE_URL =
+  process.env.REACT_APP_API_URL || 'http://localhost:6001';
+
 const ChatWindow = ({ session }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const inputRef = useRef(null);
-  const bottomRef = useRef(null); // Add scroll ref
+  const bottomRef = useRef(null);
 
   useEffect(() => {
     if (!session?._id) return;
 
     const fetchMessages = async () => {
       try {
-        const res = await axios.get(`http://localhost:6001/api/chat/messages/${session._id}`);
+        const res = await axios.get(
+          `${API_BASE_URL}/api/chat/messages/${session._id}`,
+          { withCredentials: true }
+        );
         setMessages(res.data || []);
       } catch (err) {
         console.error('Failed to fetch messages:', err);
@@ -23,7 +30,6 @@ const ChatWindow = ({ session }) => {
     fetchMessages();
   }, [session]);
 
-  // Focus input and scroll to bottom when messages or session change
   useEffect(() => {
     if (session?._id && inputRef.current) {
       inputRef.current.focus();
@@ -40,14 +46,23 @@ const ChatWindow = ({ session }) => {
     const userMessage = { role: 'user', content: input };
 
     try {
-      await axios.post('http://localhost:6001/api/chat/message', {
-        sessionId: session._id,
-        ...userMessage
-      });
+      await axios.post(
+        `${API_BASE_URL}/api/chat/message`,
+        {
+          sessionId: session._id,
+          ...userMessage
+        },
+        { withCredentials: true }
+      );
 
       setInput('');
+
+      // Small delay for bot response generation
       setTimeout(async () => {
-        const res = await axios.get(`http://localhost:6001/api/chat/messages/${session._id}`);
+        const res = await axios.get(
+          `${API_BASE_URL}/api/chat/messages/${session._id}`,
+          { withCredentials: true }
+        );
         setMessages(res.data || []);
         setLoading(false);
       }, 1500);
@@ -68,10 +83,11 @@ const ChatWindow = ({ session }) => {
       <div className="chat-messages">
         {messages.map((msg, idx) => (
           <div key={idx} className={`message ${msg.role}`}>
-            <strong>{msg.role === 'user' ? 'You' : 'Bot'}:</strong> {msg.content}
+            <strong>{msg.role === 'user' ? 'You' : 'Bot'}:</strong>{' '}
+            {msg.content}
           </div>
         ))}
-        <div ref={bottomRef} /> {/* Scroll target */}
+        <div ref={bottomRef} />
       </div>
 
       {session ? (
@@ -86,7 +102,7 @@ const ChatWindow = ({ session }) => {
             disabled={loading}
           />
           <button onClick={sendMessage} disabled={loading}>
-            {loading ? '...' : ''}
+            {loading ? '...' : 'Send'}
           </button>
         </div>
       ) : (
