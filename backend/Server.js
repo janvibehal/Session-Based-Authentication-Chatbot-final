@@ -18,8 +18,7 @@ const allowedOrigins = [
   process.env.CLIENT_URL,          // production frontend
   'http://localhost:3000',           // local frontend
   "https://session-based-authentication-chatbo.vercel.app",
-  "https://vercel.com/janvibehals-projects/session-based-authentication-chatbot-final/ZJ5uqYsTSUDrv6YeAGte4XBeQa1k",
-  "https://ichatty.vercel.app/"
+  "https://vercel.com/janvibehals-projects/session-based-authentication-chatbot-final/ZJ5uqYsTSUDrv6YeAGte4XBeQa1k"
 ];
 
 app.use(cors({
