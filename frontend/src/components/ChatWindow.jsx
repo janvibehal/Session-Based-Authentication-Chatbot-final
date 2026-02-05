@@ -102,7 +102,7 @@ const ChatWindow = ({ session }) => {
             disabled={loading}
           />
           <button onClick={sendMessage} disabled={loading}>
-            {loading ? '...' : 'Send'}
+            {loading ? '...' : ''}
           </button>
         </div>
       ) : (

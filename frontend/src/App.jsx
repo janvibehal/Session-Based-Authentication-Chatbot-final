@@ -5,7 +5,7 @@ import ChatWindow from './components/ChatWindow';
 import SessionList from './components/SessionList';
 import './index.css';
 
-// 🔴 ONE source of truth for backend URL
+// ONE source of truth for backend URL
 const API_BASE_URL =
   process.env.REACT_APP_API_URL || 'http://localhost:6001';
 
