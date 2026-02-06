@@ -285,12 +285,12 @@ body::before {
 }
 
 .message.user::before {
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
   content: 'U';
 }
 
 .message.bot::before {
-  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
   content: '◆';
   font-size: 14px;
 }
