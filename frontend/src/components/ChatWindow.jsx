@@ -11,8 +11,7 @@ const api = axios.create({
   withCredentials: true
 });
 
-// TEST ONLY: 2 minutes.
-const SESSION_EXPIRY_MS = 2 * 60 * 1000;
+const SESSION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 function storageKey(sessionId) {
   return `chat_messages_${sessionId}`;
@@ -241,12 +240,30 @@ const ChatWindow = ({ session, onSessionExpired }) => {
             disabled={loading}
           />
 
-          <button
-            onClick={sendMessage}
-            disabled={loading || !input.trim()}
-          >
-            {loading ? 'Sending...' : 'Send'}
-          </button>
+          
+<button
+  className="send-button"
+  onClick={sendMessage}
+  disabled={loading || !input.trim()}
+  aria-label="Send message"
+  title="Send message"
+>
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M22 2 11 13" />
+    <path d="m22 2-7 20-4-9-9-4 20-7Z" />
+  </svg>
+</button>
+
         </div>
       ) : (
         <div className="empty-chat">

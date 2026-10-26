@@ -26,7 +26,6 @@ npm start
 Session-Based Chatbot/
 ├── backend/
 │   ├── models/
-│   │   ├── ChatMessage.js      # Mongoose schema for individual chat messages
 │   │   └── ChatSession.js      # Mongoose schema for chat sessions
 │   ├── routes/
 │   │   └── chat.js             # Express routes to handle chat/session API

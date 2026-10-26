@@ -7,7 +7,7 @@ const router = express.Router();
 const ChatSession = require('../models/ChatSession');
 
 const COOKIE_NAME = 'visitorId';
-const SESSION_EXPIRY_MS = 2 * 60 * 1000; // TEST ONLY: 2 minutes
+const SESSION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const isProduction = process.env.NODE_ENV === 'production';
 
