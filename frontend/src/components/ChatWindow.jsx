@@ -11,7 +11,8 @@ const api = axios.create({
   withCredentials: true
 });
 
-const SESSION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+// Seven days of inactivity.
+const SESSION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
 function storageKey(sessionId) {
   return `chat_messages_${sessionId}`;
@@ -63,6 +64,7 @@ const ChatWindow = ({ session, onSessionExpired }) => {
   const bottomRef = useRef(null);
   const sessionIdRef = useRef(session?._id);
 
+  // Keep track of the currently selected session.
   useEffect(() => {
     sessionIdRef.current = session?._id;
 
@@ -71,19 +73,11 @@ const ChatWindow = ({ session, onSessionExpired }) => {
       return;
     }
 
-    const loadedMessages = readMessages(session._id);
-    setMessages(loadedMessages);
-
-    if (
-      loadedMessages.length === 0 &&
-      localStorage.getItem(storageKey(session._id)) === null
-    ) {
-      // An empty session is valid when newly created.
-      inputRef.current?.focus();
-    }
+    setMessages(readMessages(session._id));
+    inputRef.current?.focus();
   }, [session?._id]);
 
-  // Expire each session independently.
+  // Check expiration independently for the selected session.
   useEffect(() => {
     if (!session?._id) return;
 
@@ -110,6 +104,7 @@ const ChatWindow = ({ session, onSessionExpired }) => {
     return () => clearInterval(interval);
   }, [session?._id, onSessionExpired]);
 
+  // Keep the latest messages visible.
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
       behavior: 'smooth'
@@ -145,7 +140,7 @@ const ChatWindow = ({ session, onSessionExpired }) => {
       timestamp: new Date().toISOString()
     };
 
-    // Read fresh local state in case the expiry check just ran.
+    // Use any unexpired messages already stored for this session.
     const existingMessages = readMessages(sessionId);
     const updatedMessages = [...existingMessages, userMessage];
 
@@ -155,10 +150,13 @@ const ChatWindow = ({ session, onSessionExpired }) => {
     setLoading(true);
 
     try {
-      const response = await api.post('/message', {
-        sessionId,
-        content
-      });
+      const [response] = await Promise.all([
+  api.post('/message', {
+    sessionId,
+    content
+  }),
+  new Promise((resolve) => setTimeout(resolve, 800))
+]);
 
       const botMessage = {
         id: `${Date.now()}-bot`,
@@ -167,8 +165,15 @@ const ChatWindow = ({ session, onSessionExpired }) => {
         timestamp: new Date().toISOString()
       };
 
+      // Do not update a different session if the user switched chats.
       if (sessionIdRef.current === sessionId) {
         saveMessages(sessionId, [...updatedMessages, botMessage]);
+      } else {
+        // Still save the response to the session that sent the request.
+        localStorage.setItem(
+          storageKey(sessionId),
+          JSON.stringify([...updatedMessages, botMessage])
+        );
       }
     } catch (error) {
       console.error(
@@ -178,13 +183,12 @@ const ChatWindow = ({ session, onSessionExpired }) => {
 
       if (error.response?.status === 404) {
         localStorage.removeItem(storageKey(sessionId));
-        setMessages([]);
 
         if (sessionIdRef.current === sessionId) {
+          setMessages([]);
           onSessionExpired?.();
         }
       } else {
-        // Preserve the user's message locally if the API is unavailable.
         const errorMessage = {
           id: `${Date.now()}-error`,
           role: 'bot',
@@ -192,10 +196,26 @@ const ChatWindow = ({ session, onSessionExpired }) => {
           timestamp: new Date().toISOString()
         };
 
-        saveMessages(sessionId, [...updatedMessages, errorMessage]);
+        const messagesWithError = [...updatedMessages, errorMessage];
+
+        if (sessionIdRef.current === sessionId) {
+          saveMessages(sessionId, messagesWithError);
+        } else {
+          localStorage.setItem(
+            storageKey(sessionId),
+            JSON.stringify(messagesWithError)
+          );
+        }
       }
     } finally {
       setLoading(false);
+
+      // Return focus to the input after React re-enables it.
+      requestAnimationFrame(() => {
+        if (sessionIdRef.current === sessionId) {
+          inputRef.current?.focus();
+        }
+      });
     }
   }
 
@@ -221,9 +241,17 @@ const ChatWindow = ({ session, onSessionExpired }) => {
           </div>
         ))}
 
+        
         {loading && (
-          <div className="message bot">Bot is typing...</div>
+          <div className="message bot typing-indicator">
+          <span className="typing-dots">
+          <span className="typing-dot"></span>
+          <span className="typing-dot"></span>
+          <span className="typing-dot"></span>
+          </span>
+          </div>
         )}
+
 
         <div ref={bottomRef} />
       </div>
@@ -240,30 +268,29 @@ const ChatWindow = ({ session, onSessionExpired }) => {
             disabled={loading}
           />
 
-          
-<button
-  className="send-button"
-  onClick={sendMessage}
-  disabled={loading || !input.trim()}
-  aria-label="Send message"
-  title="Send message"
->
-  <svg
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <path d="M22 2 11 13" />
-    <path d="m22 2-7 20-4-9-9-4 20-7Z" />
-  </svg>
-</button>
-
+          <button
+            type="button"
+            className="send-button"
+            onClick={sendMessage}
+            disabled={loading || !input.trim()}
+            aria-label="Send message"
+            title="Send message"
+          >
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M22 2 11 13" />
+              <path d="m22 2-7 20-4-9-9-4 20-7Z" />
+            </svg>
+          </button>
         </div>
       ) : (
         <div className="empty-chat">
