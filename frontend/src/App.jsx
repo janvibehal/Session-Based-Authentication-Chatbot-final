@@ -1,9 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import Cookies from 'js-cookie';
 import ChatWindow from './components/ChatWindow';
 import SessionList from './components/SessionList';
 import './index.css';
+
+const api = axios.create({
+  baseURL: 'http://localhost:6001/api/chat',
+  withCredentials: true
+});
 
 // ONE source of truth for backend URL
 const API_BASE_URL =
@@ -14,51 +18,59 @@ const App = () => {
   const [currentSession, setCurrentSession] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  useEffect(() => {
-    fetchSessions();
+  const fetchSessions = useCallback(async () => {
+    try {
+      const res = await axios.get('http://localhost:6001/api/chat/sessions');
+      setSessions(res.data);
+
+      setCurrentSession((previous) => {
+        if (!previous) return null;
+
+        return res.data.find((s) => s._id === previous._id) || null;
+      });
+    } catch (err) {
+      console.error(
+        'Error fetching sessions:',
+        err.response?.status,
+        err.response?.data || err.message
+      );
+    }
   }, []);
 
-  const fetchSessions = async () => {
-    try {
-      const res = await axios.get(
-        `${API_BASE_URL}/api/chat/sessions`,
-        { withCredentials: true }
-      );
-      setSessions(res.data);
-    } catch (err) {
-      console.error('Error fetching sessions:', err);
-    }
-  };
+  useEffect(() => {
+    fetchSessions();
+  }, [fetchSessions]);
 
   const createSession = async (name) => {
-    if (!name) return;
+    if (!name?.trim()) return;
 
     try {
-      const res = await axios.post(
-        `${API_BASE_URL}/api/chat/session`,
-        { name },
-        { withCredentials: true }
-      );
+      const res = await axios.post('http://localhost:6001/api/chat/session', { name }, { withCredentials: true });
       setSessions([...sessions, res.data]);
       setCurrentSession(res.data);
       setIsMobileMenuOpen(false);
     } catch (err) {
-      console.error('Error creating session:', err);
+      console.error(
+        'Error creating session:',
+        err.response?.status,
+        err.response?.data || err.message
+      );
     }
   };
 
   const deleteSession = async (sessionId) => {
     try {
-      await axios.delete(
-        `${API_BASE_URL}/api/chat/session/${sessionId}`,
-        { withCredentials: true }
-      );
+      await axios.delete(`http://localhost:6001/api/chat/session/${sessionId}`);
       setSessions(sessions.filter((s) => s._id !== sessionId));
-      if (currentSession?._id === sessionId) {
+      if (currentSession && currentSession._id === sessionId) {
         setCurrentSession(null);
       }
     } catch (err) {
-      console.error('Error deleting session:', err);
+      console.error(
+        'Error deleting session:',
+        err.response?.status,
+        err.response?.data || err.message
+      );
     }
   };
 
@@ -69,8 +81,8 @@ const App = () => {
 
   return (
     <div className="app-container">
-      {/* Mobile hamburger */}
-      <button
+      {/*Only visible on mobile*/}
+      <button 
         className={`hamburger-btn ${isMobileMenuOpen ? 'open' : ''}`}
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         aria-label="Toggle menu"
@@ -80,13 +92,10 @@ const App = () => {
         <span></span>
       </button>
 
-      {/* Mobile overlay */}
-      <div
-        className={`mobile-overlay ${isMobileMenuOpen ? 'active' : ''}`}
-        onClick={() => setIsMobileMenuOpen(false)}
-      ></div>
+      {/* Mobile Overlay */}
+      <div className={`mobile-overlay ${isMobileMenuOpen ? 'active' : ''}`} onClick={() => setIsMobileMenuOpen(false)}></div>
 
-      {/* Session list */}
+      {/* Session List - Desktop always visible, Mobile sliding panel */}
       <div className={`session-list ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
         <SessionList
           sessions={sessions}

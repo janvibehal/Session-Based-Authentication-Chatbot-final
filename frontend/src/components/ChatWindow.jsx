@@ -1,7 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
-// 🔴 Single source of truth for backend URL
+const API_URL = 'http://localhost:6001/api/chat';
+
+const api = axios.create({
+  baseURL: API_URL,
+  withCredentials: true
+});
+
+// Single source of truth for backend URL
 const API_BASE_URL =
   process.env.REACT_APP_API_URL || 'http://localhost:6001';
 
@@ -13,69 +20,70 @@ const ChatWindow = ({ session }) => {
   const bottomRef = useRef(null);
 
   useEffect(() => {
-    if (!session?._id) return;
+    if (!session?._id) {
+      setMessages([]);
+      return;
+    }
+
+    let cancelled = false;
 
     const fetchMessages = async () => {
       try {
-        const res = await axios.get(
-          `${API_BASE_URL}/api/chat/messages/${session._id}`,
-          { withCredentials: true }
-        );
+        const res = await axios.get(`http://localhost:6001/api/chat/messages/${session._id}`);
         setMessages(res.data || []);
       } catch (err) {
-        console.error('Failed to fetch messages:', err);
+        console.error(
+          'Failed to fetch messages:',
+          err.response?.status,
+          err.response?.data || err.message
+        );
       }
     };
 
     fetchMessages();
-  }, [session]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?._id]);
 
   useEffect(() => {
-    if (session?._id && inputRef.current) {
-      inputRef.current.focus();
-    }
-    if (bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages, session]);
+    inputRef.current?.focus();
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, session?._id]);
 
   const sendMessage = async () => {
-    if (!input.trim() || !session?._id) return;
+    const content = input.trim();
+
+    if (!content || !session?._id || loading) return;
 
     setLoading(true);
-    const userMessage = { role: 'user', content: input };
 
     try {
-      await axios.post(
-        `${API_BASE_URL}/api/chat/message`,
-        {
-          sessionId: session._id,
-          ...userMessage
-        },
-        { withCredentials: true }
-      );
+      await axios.post('http://localhost:6001/api/chat/message', {
+        sessionId: session._id,
+        ...userMessage
+      });
 
       setInput('');
-
-      // Small delay for bot response generation
       setTimeout(async () => {
-        const res = await axios.get(
-          `${API_BASE_URL}/api/chat/messages/${session._id}`,
-          { withCredentials: true }
-        );
+        const res = await axios.get(`http://localhost:6001/api/chat/messages/${session._id}`);
         setMessages(res.data || []);
         setLoading(false);
       }, 1500);
     } catch (err) {
-      console.error('Failed to send message:', err);
+      console.error(
+        'Failed to send message:',
+        err.response?.status,
+        err.response?.data || err.message
+      );
+    } finally {
       setLoading(false);
     }
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      sendMessage();
-    }
+    if (e.key === 'Enter') sendMessage();
   };
 
   return (
@@ -83,8 +91,7 @@ const ChatWindow = ({ session }) => {
       <div className="chat-messages">
         {messages.map((msg, idx) => (
           <div key={idx} className={`message ${msg.role}`}>
-            <strong>{msg.role === 'user' ? 'You' : 'Bot'}:</strong>{' '}
-            {msg.content}
+            <strong>{msg.role === 'user' ? 'You' : 'Bot'}:</strong> {msg.content}
           </div>
         ))}
         <div ref={bottomRef} />
@@ -101,8 +108,8 @@ const ChatWindow = ({ session }) => {
             onKeyDown={handleKeyDown}
             disabled={loading}
           />
-          <button onClick={sendMessage} disabled={loading}>
-            {loading ? '...' : ''}
+          <button onClick={sendMessage} disabled={loading || !input.trim()}>
+            {loading ? 'Sending...' : 'Send'}
           </button>
         </div>
       ) : (
