@@ -11,18 +11,40 @@ const api = axios.create({
   withCredentials: true
 });
 
-function storageKey(sessionId) {
-  return `chat_messages_${sessionId}`;
-}
+// TEST ONLY: expire conversations after 2 minutes.
+const CHAT_EXPIRY_MS = 2 * 60 * 1000;
 
+// Check localStorage and remove expired conversations.
 function readMessages(sessionId) {
   try {
-    const saved = localStorage.getItem(storageKey(sessionId));
+    const key = `chat_messages_${sessionId}`;
+    const saved = localStorage.getItem(key);
 
     if (!saved) return [];
 
     const parsed = JSON.parse(saved);
-    return Array.isArray(parsed) ? parsed : [];
+
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      localStorage.removeItem(key);
+      return [];
+    }
+
+    const latestTimestamp = Math.max(
+      ...parsed.map((message) => {
+        const timestamp = Date.parse(message.timestamp);
+        return Number.isFinite(timestamp) ? timestamp : 0;
+      })
+    );
+
+    if (
+      latestTimestamp === 0 ||
+      Date.now() - latestTimestamp >= CHAT_EXPIRY_MS
+    ) {
+      localStorage.removeItem(key);
+      return [];
+    }
+
+    return parsed;
   } catch (error) {
     console.error('Could not read saved messages:', error);
     return [];
@@ -37,7 +59,7 @@ const ChatWindow = ({ session }) => {
   const inputRef = useRef(null);
   const bottomRef = useRef(null);
 
-  // Load messages from this browser, not MongoDB.
+  // Load messages from this browser when the selected session changes.
   useEffect(() => {
     if (!session?._id) {
       setMessages([]);
@@ -46,6 +68,19 @@ const ChatWindow = ({ session }) => {
 
     setMessages(readMessages(session._id));
     inputRef.current?.focus();
+  }, [session?._id]);
+
+  // Automatically remove expired messages while the chat is open.
+  useEffect(() => {
+    if (!session?._id) return;
+
+    const sessionId = session._id;
+
+    const interval = setInterval(() => {
+      setMessages(readMessages(sessionId));
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, [session?._id]);
 
   useEffect(() => {
@@ -57,7 +92,7 @@ const ChatWindow = ({ session }) => {
   function saveMessages(sessionId, updatedMessages) {
     try {
       localStorage.setItem(
-        storageKey(sessionId),
+        `chat_messages_${sessionId}`,
         JSON.stringify(updatedMessages)
       );
 
@@ -91,7 +126,6 @@ const ChatWindow = ({ session }) => {
 
     const updatedMessages = [...messages, userMessage];
 
-    // Save the user's message locally before making the request.
     if (!saveMessages(sessionId, updatedMessages)) {
       return;
     }
@@ -112,6 +146,7 @@ const ChatWindow = ({ session }) => {
         timestamp: new Date().toISOString()
       };
 
+      // Save both messages locally, never in MongoDB.
       saveMessages(sessionId, [...updatedMessages, botMessage]);
     } catch (error) {
       console.error(
@@ -119,7 +154,6 @@ const ChatWindow = ({ session }) => {
         error.response?.data || error.message
       );
 
-      // Keep the user's message locally if the API fails.
       const errorMessage = {
         id: `${Date.now()}-error`,
         role: 'bot',
