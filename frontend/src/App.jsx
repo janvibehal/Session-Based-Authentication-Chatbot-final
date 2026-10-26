@@ -5,8 +5,6 @@ import ChatWindow from './components/ChatWindow';
 import SessionList from './components/SessionList';
 import './index.css';
 
-// Set REACT_APP_API_URL to the backend origin only.
-// Example: https://your-api.onrender.com
 const API_ORIGIN = (
   process.env.REACT_APP_API_URL || 'http://localhost:6001'
 ).replace(/\/$/, '');
@@ -24,24 +22,47 @@ const App = () => {
   const fetchSessions = useCallback(async () => {
     try {
       const res = await api.get('/sessions');
-      setSessions(res.data);
-
-      setCurrentSession((previous) =>
-        previous
-          ? res.data.find((session) => session._id === previous._id) || null
-          : null
+      const activeSessions = res.data || [];
+      const activeIds = new Set(
+        activeSessions.map((session) => session._id)
       );
+
+      // Remove browser-stored messages for sessions no longer active.
+      Object.keys(localStorage).forEach((key) => {
+        if (!key.startsWith('chat_messages_')) return;
+
+        const sessionId = key.slice('chat_messages_'.length);
+
+        if (!activeIds.has(sessionId)) {
+          localStorage.removeItem(key);
+        }
+      });
+
+      setSessions(activeSessions);
+
+      setCurrentSession((previous) => {
+        if (!previous) return null;
+
+        return activeSessions.find(
+          (session) => session._id === previous._id
+        ) || null;
+      });
     } catch (error) {
+      // Keep the current UI if the network temporarily fails.
       console.error(
         'Error fetching sessions:',
-        error.response?.status,
         error.response?.data || error.message
       );
     }
   }, []);
 
+  // Fetch on startup and poll so expired tabs disappear.
   useEffect(() => {
     fetchSessions();
+
+    const interval = setInterval(fetchSessions, 5000);
+
+    return () => clearInterval(interval);
   }, [fetchSessions]);
 
   const createSession = async (name) => {
@@ -52,13 +73,16 @@ const App = () => {
         name: name.trim()
       });
 
-      setSessions((previous) => [...previous, res.data]);
+      setSessions((previous) => [
+        res.data,
+        ...previous.filter((item) => item._id !== res.data._id)
+      ]);
+
       setCurrentSession(res.data);
       setIsMobileMenuOpen(false);
     } catch (error) {
       console.error(
         'Error creating session:',
-        error.response?.status,
         error.response?.data || error.message
       );
     }
@@ -67,6 +91,8 @@ const App = () => {
   const deleteSession = async (sessionId) => {
     try {
       await api.delete(`/session/${sessionId}`);
+
+      localStorage.removeItem(`chat_messages_${sessionId}`);
 
       setSessions((previous) =>
         previous.filter((session) => session._id !== sessionId)
@@ -78,7 +104,6 @@ const App = () => {
     } catch (error) {
       console.error(
         'Error deleting session:',
-        error.response?.status,
         error.response?.data || error.message
       );
     }
@@ -116,7 +141,10 @@ const App = () => {
         />
       </div>
 
-      <ChatWindow session={currentSession} />
+      <ChatWindow
+        session={currentSession}
+        onSessionExpired={fetchSessions}
+      />
     </div>
   );
 };

@@ -11,13 +11,16 @@ const api = axios.create({
   withCredentials: true
 });
 
-// TEST ONLY: expire conversations after 2 minutes.
-const CHAT_EXPIRY_MS = 2 * 60 * 1000;
+// TEST ONLY: 2 minutes.
+const SESSION_EXPIRY_MS = 2 * 60 * 1000;
 
-// Check localStorage and remove expired conversations.
+function storageKey(sessionId) {
+  return `chat_messages_${sessionId}`;
+}
+
 function readMessages(sessionId) {
   try {
-    const key = `chat_messages_${sessionId}`;
+    const key = storageKey(sessionId);
     const saved = localStorage.getItem(key);
 
     if (!saved) return [];
@@ -29,59 +32,84 @@ function readMessages(sessionId) {
       return [];
     }
 
-    const latestTimestamp = Math.max(
-      ...parsed.map((message) => {
-        const timestamp = Date.parse(message.timestamp);
-        return Number.isFinite(timestamp) ? timestamp : 0;
-      })
+    const timestamps = parsed.map((message) =>
+      Date.parse(message.timestamp)
     );
 
-    if (
-      latestTimestamp === 0 ||
-      Date.now() - latestTimestamp >= CHAT_EXPIRY_MS
-    ) {
+    if (timestamps.some((timestamp) => !Number.isFinite(timestamp))) {
+      localStorage.removeItem(key);
+      return [];
+    }
+
+    const latestTimestamp = Math.max(...timestamps);
+
+    if (Date.now() - latestTimestamp >= SESSION_EXPIRY_MS) {
       localStorage.removeItem(key);
       return [];
     }
 
     return parsed;
   } catch (error) {
-    console.error('Could not read saved messages:', error);
+    console.error('Could not read local messages:', error);
     return [];
   }
 }
 
-const ChatWindow = ({ session }) => {
+const ChatWindow = ({ session, onSessionExpired }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
 
   const inputRef = useRef(null);
   const bottomRef = useRef(null);
+  const sessionIdRef = useRef(session?._id);
 
-  // Load messages from this browser when the selected session changes.
   useEffect(() => {
+    sessionIdRef.current = session?._id;
+
     if (!session?._id) {
       setMessages([]);
       return;
     }
 
-    setMessages(readMessages(session._id));
-    inputRef.current?.focus();
+    const loadedMessages = readMessages(session._id);
+    setMessages(loadedMessages);
+
+    if (
+      loadedMessages.length === 0 &&
+      localStorage.getItem(storageKey(session._id)) === null
+    ) {
+      // An empty session is valid when newly created.
+      inputRef.current?.focus();
+    }
   }, [session?._id]);
 
-  // Automatically remove expired messages while the chat is open.
+  // Expire each session independently.
   useEffect(() => {
     if (!session?._id) return;
 
     const sessionId = session._id;
 
     const interval = setInterval(() => {
-      setMessages(readMessages(sessionId));
+      if (sessionIdRef.current !== sessionId) return;
+
+      const saved = localStorage.getItem(storageKey(sessionId));
+
+      if (!saved) {
+        setMessages([]);
+        return;
+      }
+
+      const updatedMessages = readMessages(sessionId);
+      setMessages(updatedMessages);
+
+      if (updatedMessages.length === 0) {
+        onSessionExpired?.();
+      }
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [session?._id]);
+  }, [session?._id, onSessionExpired]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
@@ -92,30 +120,24 @@ const ChatWindow = ({ session }) => {
   function saveMessages(sessionId, updatedMessages) {
     try {
       localStorage.setItem(
-        `chat_messages_${sessionId}`,
+        storageKey(sessionId),
         JSON.stringify(updatedMessages)
       );
 
       setMessages(updatedMessages);
       return true;
     } catch (error) {
-      console.error('Could not save messages in browser:', error);
-
-      alert(
-        'Could not save this conversation in your browser. ' +
-        'Check your browser storage settings or available space.'
-      );
-
+      console.error('Could not save local messages:', error);
+      alert('Could not save this conversation in browser storage.');
       return false;
     }
   }
 
   async function sendMessage() {
     const content = input.trim();
+    const sessionId = session?._id;
 
-    if (!content || !session?._id || loading) return;
-
-    const sessionId = session._id;
+    if (!content || !sessionId || loading) return;
 
     const userMessage = {
       id: `${Date.now()}-user`,
@@ -124,11 +146,11 @@ const ChatWindow = ({ session }) => {
       timestamp: new Date().toISOString()
     };
 
-    const updatedMessages = [...messages, userMessage];
+    // Read fresh local state in case the expiry check just ran.
+    const existingMessages = readMessages(sessionId);
+    const updatedMessages = [...existingMessages, userMessage];
 
-    if (!saveMessages(sessionId, updatedMessages)) {
-      return;
-    }
+    if (!saveMessages(sessionId, updatedMessages)) return;
 
     setInput('');
     setLoading(true);
@@ -146,22 +168,33 @@ const ChatWindow = ({ session }) => {
         timestamp: new Date().toISOString()
       };
 
-      // Save both messages locally, never in MongoDB.
-      saveMessages(sessionId, [...updatedMessages, botMessage]);
+      if (sessionIdRef.current === sessionId) {
+        saveMessages(sessionId, [...updatedMessages, botMessage]);
+      }
     } catch (error) {
       console.error(
-        'Failed to get bot reply:',
+        'Could not get a bot reply:',
         error.response?.data || error.message
       );
 
-      const errorMessage = {
-        id: `${Date.now()}-error`,
-        role: 'bot',
-        content: 'Sorry, I could not get a response. Please try again.',
-        timestamp: new Date().toISOString()
-      };
+      if (error.response?.status === 404) {
+        localStorage.removeItem(storageKey(sessionId));
+        setMessages([]);
 
-      saveMessages(sessionId, [...updatedMessages, errorMessage]);
+        if (sessionIdRef.current === sessionId) {
+          onSessionExpired?.();
+        }
+      } else {
+        // Preserve the user's message locally if the API is unavailable.
+        const errorMessage = {
+          id: `${Date.now()}-error`,
+          role: 'bot',
+          content: 'Sorry, I could not get a response. Please try again.',
+          timestamp: new Date().toISOString()
+        };
+
+        saveMessages(sessionId, [...updatedMessages, errorMessage]);
+      }
     } finally {
       setLoading(false);
     }

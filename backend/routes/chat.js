@@ -7,14 +7,14 @@ const router = express.Router();
 const ChatSession = require('../models/ChatSession');
 
 const COOKIE_NAME = 'visitorId';
-const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+const SESSION_EXPIRY_MS = 2 * 60 * 1000; // TEST ONLY: 2 minutes
+const COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const isProduction = process.env.NODE_ENV === 'production';
 
 function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-// Identify each browser using an anonymous, HTTP-only cookie.
 function getVisitorId(req, res) {
   let token = req.cookies?.[COOKIE_NAME];
 
@@ -26,7 +26,7 @@ function getVisitorId(req, res) {
     httpOnly: true,
     secure: isProduction,
     sameSite: isProduction ? 'none' : 'lax',
-    maxAge: SEVEN_DAYS_MS,
+    maxAge: COOKIE_MAX_AGE_MS,
     path: '/'
   });
 
@@ -38,7 +38,7 @@ function validObjectId(id) {
     mongoose.Types.ObjectId.isValid(id);
 }
 
-// List only this browser's active sessions.
+// List active sessions belonging to this browser.
 router.get('/sessions', async (req, res) => {
   try {
     const ownerId = getVisitorId(req, res);
@@ -57,7 +57,7 @@ router.get('/sessions', async (req, res) => {
   }
 });
 
-// Create a new session for this browser.
+// Create a session with a two-minute inactivity timeout.
 router.post('/session', async (req, res) => {
   try {
     const ownerId = getVisitorId(req, res);
@@ -78,7 +78,7 @@ router.post('/session', async (req, res) => {
       ownerId,
       createdAt: now,
       lastActivityAt: now,
-      expiresAt: new Date(now.getTime() + SEVEN_DAYS_MS)
+      expiresAt: new Date(now.getTime() + SESSION_EXPIRY_MS)
     });
 
     const result = session.toObject();
@@ -91,11 +91,9 @@ router.post('/session', async (req, res) => {
   }
 });
 
-// Verify ownership and renew the session's seven-day expiration.
+// Verify ownership and expiry before extending activity.
 async function getOwnedActiveSession(sessionId, ownerId) {
-  if (!validObjectId(sessionId)) {
-    return null;
-  }
+  if (!validObjectId(sessionId)) return null;
 
   const now = new Date();
 
@@ -108,15 +106,14 @@ async function getOwnedActiveSession(sessionId, ownerId) {
     {
       $set: {
         lastActivityAt: now,
-        expiresAt: new Date(now.getTime() + SEVEN_DAYS_MS)
+        expiresAt: new Date(now.getTime() + SESSION_EXPIRY_MS)
       }
     },
     { new: true }
   );
 }
 
-// Messages are no longer read from MongoDB.
-// The frontend loads them from localStorage instead.
+// Messages live in browser localStorage, not MongoDB.
 router.get('/messages/:sessionId', async (req, res) => {
   try {
     const ownerId = getVisitorId(req, res);
@@ -127,9 +124,7 @@ router.get('/messages/:sessionId', async (req, res) => {
     );
 
     if (!session) {
-      return res.status(404).json({
-        error: 'Session not found'
-      });
+      return res.status(404).json({ error: 'Session expired or not found' });
     }
 
     return res.json([]);
@@ -139,7 +134,7 @@ router.get('/messages/:sessionId', async (req, res) => {
   }
 });
 
-// Generate a response without storing either message in MongoDB.
+// Generate a rule-based reply without saving message content.
 router.post('/message', async (req, res) => {
   try {
     const ownerId = getVisitorId(req, res);
@@ -155,19 +150,15 @@ router.post('/message', async (req, res) => {
       });
     }
 
-    const session = await getOwnedActiveSession(
-      sessionId,
-      ownerId
-    );
+    const session = await getOwnedActiveSession(sessionId, ownerId);
 
     if (!session) {
       return res.status(404).json({
-        error: 'Session not found'
+        error: 'Session expired or not found'
       });
     }
 
-    const cleanContent = content.trim().slice(0, 10000);
-    const lower = cleanContent.toLowerCase();
+    const lower = content.trim().slice(0, 10000).toLowerCase();
 
     let reply = "Sorry, I didn't understand that.";
 
@@ -181,13 +172,11 @@ router.post('/message', async (req, res) => {
       reply = 'You can ask me basic questions like greetings or status.';
     }
 
-    // No ChatMessage.create() calls: message content is not saved.
+    // No ChatMessage.create(): message content is not saved in MongoDB.
     return res.json({ reply });
   } catch (error) {
     console.error('Error processing message:', error.message);
-    return res.status(500).json({
-      error: 'Failed to generate a response'
-    });
+    res.status(500).json({ error: 'Failed to generate a response' });
   }
 });
 
@@ -195,15 +184,15 @@ router.post('/message', async (req, res) => {
 router.delete('/session/:sessionId', async (req, res) => {
   try {
     const ownerId = getVisitorId(req, res);
+    const sessionId = req.params.sessionId;
 
-    if (!validObjectId(req.params.sessionId)) {
+    if (!validObjectId(sessionId)) {
       return res.status(404).json({ error: 'Session not found' });
     }
 
     const session = await ChatSession.findOneAndDelete({
-      _id: req.params.sessionId,
-      ownerId,
-      expiresAt: { $gt: new Date() }
+      _id: sessionId,
+      ownerId
     });
 
     if (!session) {
