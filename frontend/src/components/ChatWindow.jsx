@@ -11,6 +11,24 @@ const api = axios.create({
   withCredentials: true
 });
 
+function storageKey(sessionId) {
+  return `chat_messages_${sessionId}`;
+}
+
+function readMessages(sessionId) {
+  try {
+    const saved = localStorage.getItem(storageKey(sessionId));
+
+    if (!saved) return [];
+
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error('Could not read saved messages:', error);
+    return [];
+  }
+}
+
 const ChatWindow = ({ session }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -19,89 +37,115 @@ const ChatWindow = ({ session }) => {
   const inputRef = useRef(null);
   const bottomRef = useRef(null);
 
+  // Load messages from this browser, not MongoDB.
   useEffect(() => {
-    let cancelled = false;
-
     if (!session?._id) {
       setMessages([]);
-      return undefined;
+      return;
     }
 
-    (async () => {
-      try {
-        const res = await api.get(`/messages/${session._id}`);
-
-        if (!cancelled) {
-          setMessages(res.data || []);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          console.error(
-            'Failed to fetch messages:',
-            error.response?.status,
-            error.response?.data || error.message
-          );
-          setMessages([]);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+    setMessages(readMessages(session._id));
+    inputRef.current?.focus();
   }, [session?._id]);
 
   useEffect(() => {
-    if (session?._id) {
-      inputRef.current?.focus();
-    }
-
     bottomRef.current?.scrollIntoView({
       behavior: 'smooth'
     });
-  }, [messages, session?._id]);
+  }, [messages, loading]);
 
-  const sendMessage = async () => {
+  function saveMessages(sessionId, updatedMessages) {
+    try {
+      localStorage.setItem(
+        storageKey(sessionId),
+        JSON.stringify(updatedMessages)
+      );
+
+      setMessages(updatedMessages);
+      return true;
+    } catch (error) {
+      console.error('Could not save messages in browser:', error);
+
+      alert(
+        'Could not save this conversation in your browser. ' +
+        'Check your browser storage settings or available space.'
+      );
+
+      return false;
+    }
+  }
+
+  async function sendMessage() {
     const content = input.trim();
 
     if (!content || !session?._id || loading) return;
 
+    const sessionId = session._id;
+
+    const userMessage = {
+      id: `${Date.now()}-user`,
+      role: 'user',
+      content,
+      timestamp: new Date().toISOString()
+    };
+
+    const updatedMessages = [...messages, userMessage];
+
+    // Save the user's message locally before making the request.
+    if (!saveMessages(sessionId, updatedMessages)) {
+      return;
+    }
+
+    setInput('');
     setLoading(true);
 
     try {
-      await api.post('/message', {
-        sessionId: session._id,
+      const response = await api.post('/message', {
+        sessionId,
         content
       });
 
-      setInput('');
+      const botMessage = {
+        id: `${Date.now()}-bot`,
+        role: 'bot',
+        content: response.data.reply,
+        timestamp: new Date().toISOString()
+      };
 
-      const res = await api.get(`/messages/${session._id}`);
-      setMessages(res.data || []);
+      saveMessages(sessionId, [...updatedMessages, botMessage]);
     } catch (error) {
       console.error(
-        'Failed to send message:',
-        error.response?.status,
+        'Failed to get bot reply:',
         error.response?.data || error.message
       );
+
+      // Keep the user's message locally if the API fails.
+      const errorMessage = {
+        id: `${Date.now()}-error`,
+        role: 'bot',
+        content: 'Sorry, I could not get a response. Please try again.',
+        timestamp: new Date().toISOString()
+      };
+
+      saveMessages(sessionId, [...updatedMessages, errorMessage]);
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const handleKeyDown = (event) => {
+  function handleKeyDown(event) {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       sendMessage();
     }
-  };
+  }
 
   return (
     <div className="chat-window">
       <div className="chat-messages">
-        {messages.map((message, index) => (
+        {messages.map((message) => (
           <div
-            key={message._id || index}
+            key={message.id}
             className={`message ${message.role}`}
           >
             <strong>
@@ -110,6 +154,10 @@ const ChatWindow = ({ session }) => {
             {message.content}
           </div>
         ))}
+
+        {loading && (
+          <div className="message bot">Bot is typing...</div>
+        )}
 
         <div ref={bottomRef} />
       </div>

@@ -5,7 +5,6 @@ const mongoose = require('mongoose');
 const router = express.Router();
 
 const ChatSession = require('../models/ChatSession');
-const ChatMessage = require('../models/ChatMessage');
 
 const COOKIE_NAME = 'visitorId';
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -15,9 +14,9 @@ function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-// One anonymous identity per browser cookie.
+// Identify each browser using an anonymous, HTTP-only cookie.
 function getVisitorId(req, res) {
-  let token = req.cookies && req.cookies[COOKIE_NAME];
+  let token = req.cookies?.[COOKIE_NAME];
 
   if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token)) {
     token = crypto.randomBytes(32).toString('hex');
@@ -39,7 +38,7 @@ function validObjectId(id) {
     mongoose.Types.ObjectId.isValid(id);
 }
 
-// Return only sessions belonging to this visitor.
+// List only this browser's active sessions.
 router.get('/sessions', async (req, res) => {
   try {
     const ownerId = getVisitorId(req, res);
@@ -53,12 +52,12 @@ router.get('/sessions', async (req, res) => {
 
     res.json(sessions);
   } catch (error) {
-    console.error('Error fetching sessions:', error);
+    console.error('Error fetching sessions:', error.message);
     res.status(500).json({ error: 'Failed to fetch sessions' });
   }
 });
 
-// Create a session for this anonymous visitor.
+// Create a new session for this browser.
 router.post('/session', async (req, res) => {
   try {
     const ownerId = getVisitorId(req, res);
@@ -82,24 +81,25 @@ router.post('/session', async (req, res) => {
       expiresAt: new Date(now.getTime() + SEVEN_DAYS_MS)
     });
 
-    const safeSession = session.toObject();
-    delete safeSession.ownerId;
+    const result = session.toObject();
+    delete result.ownerId;
 
-    res.status(201).json(safeSession);
+    res.status(201).json(result);
   } catch (error) {
-    console.error('Error creating session:', error);
+    console.error('Error creating session:', error.message);
     res.status(500).json({ error: 'Failed to create session' });
   }
 });
 
-// Check ownership and renew the seven-day inactivity period.
+// Verify ownership and renew the session's seven-day expiration.
 async function getOwnedActiveSession(sessionId, ownerId) {
-  if (!validObjectId(sessionId)) return null;
+  if (!validObjectId(sessionId)) {
+    return null;
+  }
 
   const now = new Date();
-  const expiresAt = new Date(now.getTime() + SEVEN_DAYS_MS);
 
-  const session = await ChatSession.findOneAndUpdate(
+  return ChatSession.findOneAndUpdate(
     {
       _id: sessionId,
       ownerId,
@@ -108,47 +108,38 @@ async function getOwnedActiveSession(sessionId, ownerId) {
     {
       $set: {
         lastActivityAt: now,
-        expiresAt
+        expiresAt: new Date(now.getTime() + SEVEN_DAYS_MS)
       }
     },
     { new: true }
   );
-
-  if (session) {
-    await ChatMessage.updateMany(
-      { sessionId: session._id },
-      { $set: { expiresAt } }
-    );
-  }
-
-  return session;
 }
 
-// Retrieve messages only for an owned session.
+// Messages are no longer read from MongoDB.
+// The frontend loads them from localStorage instead.
 router.get('/messages/:sessionId', async (req, res) => {
   try {
     const ownerId = getVisitorId(req, res);
+
     const session = await getOwnedActiveSession(
       req.params.sessionId,
       ownerId
     );
 
     if (!session) {
-      return res.status(404).json({ error: 'Session not found' });
+      return res.status(404).json({
+        error: 'Session not found'
+      });
     }
 
-    const messages = await ChatMessage.find({
-      sessionId: session._id
-    }).sort({ timestamp: 1 });
-
-    res.json(messages);
+    return res.json([]);
   } catch (error) {
-    console.error('Error fetching messages:', error);
-    res.status(500).json({ error: 'Failed to fetch messages' });
+    console.error('Error checking session:', error.message);
+    res.status(500).json({ error: 'Failed to check session' });
   }
 });
 
-// Save the user's message and generate the bot's response.
+// Generate a response without storing either message in MongoDB.
 router.post('/message', async (req, res) => {
   try {
     const ownerId = getVisitorId(req, res);
@@ -170,48 +161,37 @@ router.post('/message', async (req, res) => {
     );
 
     if (!session) {
-      return res.status(404).json({ error: 'Session not found' });
+      return res.status(404).json({
+        error: 'Session not found'
+      });
     }
 
     const cleanContent = content.trim().slice(0, 10000);
-    const expiresAt = session.expiresAt;
-
-    await ChatMessage.create({
-      sessionId: session._id,
-      role: 'user',
-      content: cleanContent,
-      expiresAt
-    });
-
-    // Rule-based responses; this is not an LLM.
-    let reply = 'Sorry, I didn’t understand that.';
     const lower = cleanContent.toLowerCase();
 
-    if (lower.includes('hello')) {
+    let reply = "Sorry, I didn't understand that.";
+
+    if (lower.includes('hello') || lower.includes('hi')) {
       reply = 'Hi there! How can I help you today?';
     } else if (lower.includes('how are you')) {
-      reply = 'I’m just a bot, but I’m doing great!';
+      reply = "I'm just a bot, but I'm doing great!";
     } else if (lower.includes('bye')) {
       reply = 'Goodbye! Have a nice day!';
     } else if (lower.includes('help')) {
       reply = 'You can ask me basic questions like greetings or status.';
     }
 
-    const botMessage = await ChatMessage.create({
-      sessionId: session._id,
-      role: 'bot',
-      content: reply,
-      expiresAt
-    });
-
-    return res.status(200).json(botMessage);
+    // No ChatMessage.create() calls: message content is not saved.
+    return res.json({ reply });
   } catch (error) {
-    console.error('Error sending message:', error);
-    return res.status(500).json({ error: 'Failed to send message' });
+    console.error('Error processing message:', error.message);
+    return res.status(500).json({
+      error: 'Failed to generate a response'
+    });
   }
 });
 
-// Delete only sessions owned by this visitor.
+// Delete a session belonging to this browser.
 router.delete('/session/:sessionId', async (req, res) => {
   try {
     const ownerId = getVisitorId(req, res);
@@ -230,13 +210,9 @@ router.delete('/session/:sessionId', async (req, res) => {
       return res.status(404).json({ error: 'Session not found' });
     }
 
-    await ChatMessage.deleteMany({
-      sessionId: session._id
-    });
-
-    res.json({ message: 'Session and messages deleted' });
+    res.json({ message: 'Session deleted' });
   } catch (error) {
-    console.error('Error deleting session:', error);
+    console.error('Error deleting session:', error.message);
     res.status(500).json({ error: 'Failed to delete session' });
   }
 });
