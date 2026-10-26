@@ -1,59 +1,62 @@
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
-const chatRoutes = require('./routes/chat');
 require('dotenv').config();
 
+const chatRoutes = require('./routes/chat');
+
 const app = express();
-
-// ✅ Port from env (Render compatible)
 const PORT = process.env.PORT || 6001;
-
-// ✅ Mongo URI from env
 const MONGO_URI = process.env.MONGO_URI;
 
-// ✅ Allow BOTH local + deployed frontend
 const allowedOrigins = [
-  process.env.CLIENT_URL,          // production frontend
-  'http://localhost:3000',           // local frontend
-  "https://session-based-authentication-chatbo.vercel.app",
-  "https://vercel.com/janvibehals-projects/session-based-authentication-chatbot-final/ZJ5uqYsTSUDrv6YeAGte4XBeQa1k"
-];
+  process.env.CLIENT_URL,
+  'http://localhost:3000',
+  'https://session-based-authentication-chatbo.vercel.app'
+].filter(Boolean);
 
 app.use(cors({
   origin: function (origin, callback) {
-    // allow requests with no origin (Postman, curl)
+    // Allow requests without an Origin header, e.g. curl.
     if (!origin) return callback(null, true);
 
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
 
-    return callback(new Error('CORS not allowed from this origin'), false);
+    return callback(
+      new Error(`CORS not allowed from this origin: ${origin}`)
+    );
   },
   credentials: true
 }));
 
 app.use(express.json());
 app.use(cookieParser());
+
+// Health check
+app.get('/', (_req, res) => {
+  res.json({ status: 'ok', message: 'Chatbot backend is running' });
+});
+
 app.use('/api/chat', chatRoutes);
 
-// ❌ Fail fast if DB env missing
 if (!MONGO_URI) {
-  console.error('❌ MONGO_URI not defined');
+  console.error('MONGO_URI not defined');
   process.exit(1);
 }
 
 mongoose.connect(MONGO_URI)
   .then(() => {
-    console.log('✅ Connected to MongoDB');
+    console.log('Connected to MongoDB');
 
-    app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on port ${PORT}`);
     });
   })
   .catch((err) => {
-    console.error('❌ MongoDB connection error:', err.message);
+    console.error('MongoDB connection error:', err.message);
     process.exit(1);
   });

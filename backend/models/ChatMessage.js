@@ -1,3 +1,4 @@
+
 const mongoose = require('mongoose');
 
 const ChatMessageSchema = new mongoose.Schema({
@@ -31,7 +32,6 @@ const ChatMessageSchema = new mongoose.Schema({
   }
 });
 
-// Messages expire independently.
 ChatMessageSchema.index(
   { expiresAt: 1 },
   { expireAfterSeconds: 0 }
