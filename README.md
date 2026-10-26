@@ -62,14 +62,6 @@ The application is designed to minimize server-side retention of conversation co
 
 Browser storage is specific to the browser profile and website origin. Clearing site data can make locally stored conversations inaccessible. Browser `localStorage` is not encrypted by default, and messages are still transmitted to the backend to generate responses.
 
-## Getting Started
-
-1. Clone the repository.
-2. Install the backend and frontend dependencies.
-3. Configure the required environment variables for MongoDB Atlas, the backend, and the frontend API URL.
-4. Start the backend and frontend development servers.
-5. Open the frontend in your browser and create a session to begin chatting.
-
 ## Future Improvements
 
 - Integrate an AI-powered conversational model.
@@ -84,6 +76,7 @@ The goal of iChat is to demonstrate anonymous session management, browser-level 
 
 
 ## 🚀 How to Run
+
 ### 0. first change both package_frontend and backend files name to package.json and put them in their respective folders according to the file structure which is provided at the end of the readme file, firstly open the mongo compass on ur system and click on connect, run the command mongod 
 ### 1. Backend:- open other terminal and run the following commands
 ```bash
